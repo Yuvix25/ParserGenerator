@@ -176,7 +176,7 @@ class Parser {
             for (RuleStateRow row : state) {
                 if (row.position < row.rule.children.size()) {
                     ParserRule curr = row.rule.children.get(row.position);
-                    if (curr.type == 2 && rules.containsKey(curr.name)) {
+                    if (curr.type == -1 && rules.containsKey(curr.name)) {
                         toAdd.add(curr.name);
                     }
                 }

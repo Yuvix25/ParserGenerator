@@ -1,7 +1,7 @@
 import java.util.*;
 
 public class RuleParser {
-    final static List<Character> seperators = Arrays.asList('|', ' ', '(', ')');
+    final static List<Character> seperators = Arrays.asList('|', ' ', '(', ')', '?');
 
     public static ParserRule parseRule(List<String> seperated) {
         ParserRule root = new ParserRule(0, new ArrayList<ParserRule>());
@@ -16,6 +16,8 @@ public class RuleParser {
                     break;
                 case "|":
                     root.type = 1;
+                    break;
+                case "?":
                     break;
                 case " ":
                     break;

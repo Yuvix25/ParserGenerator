@@ -1,12 +1,12 @@
 import java.util.*;
 
 public class ParserRule {
-    int type = 2;
+    int type = -1;
     List<ParserRule> children;
     String name;
     ParserToken token;
 
-    /* type - 0: AND, 1: OR, 2: NAME
+    /* type -> -1: NAME, 0: AND, 1: OR
     */
     public ParserRule(int type, List<ParserRule> children) {
         this.type = type;
@@ -30,7 +30,7 @@ public class ParserRule {
                         for (ParserRule split : splittedChild) {
                             for (ParserRule prev : res) {
                                 List<ParserRule> newChildren;
-                                if (prev.type == 2) {
+                                if (prev.type == -1) {
                                     newChildren = new ArrayList<ParserRule>(Arrays.asList(prev));
                                 } else {
                                     newChildren = new ArrayList<ParserRule>(prev.children);
@@ -53,7 +53,7 @@ public class ParserRule {
                     res.addAll(child.splitByOr());
                 }
                 break;
-            case 2:
+            case -1:
                 res.add(this);
                 break;
         }
@@ -63,14 +63,14 @@ public class ParserRule {
 
     public void clearTokens() {
         this.token = null;
-        if (type != 2)
+        if (type != -1)
             for (ParserRule x : children)
                 x.clearTokens();
     }
 
     public ParserRule clone() {
         List<ParserRule> newChildren = new ArrayList<ParserRule>();
-        if (type != 2)
+        if (type != -1)
             for (ParserRule child : children)
                 newChildren.add(child.clone());
         else
@@ -84,7 +84,7 @@ public class ParserRule {
 
 
     public String toString() {
-        if (type == 2)
+        if (type == -1)
             return name;
         else
             return (type == 0 ? "And" : "Or") + "<" + children.toString() + ">";
