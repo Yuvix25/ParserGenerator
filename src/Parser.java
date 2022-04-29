@@ -141,20 +141,6 @@ class Parser {
         return token;
     }
 
-
-    private ParserToken getToken(RuleStateRow row) {
-        List<ParserToken> tokenChildren = new ArrayList<ParserToken>();
-        String value = "";
-        if (row.rule.children != null) {
-            for (ParserRule child : row.rule.children) {
-                tokenChildren.add(child.token);
-                if (child.token != null)
-                    value += tokenChildren.get(tokenChildren.size() - 1).value;
-            }
-        }
-        return new ParserToken(row.name, value, 0, 0, 0, tokenChildren);
-    }
-
     private void progress(List<List<RuleStateRow>> stateTable, List<RuleStateRow> state, RuleStateRow row, ParserToken token) {
         state.add(new RuleStateRow(row.name, row.rule, row.position+1, row.column));
         if (row.position + 1 == row.rule.children.size()) {
@@ -212,36 +198,7 @@ class Parser {
     private void addRule(List<RuleStateRow> state, String rule, int column) {
         for (ParserRule split : rules.get(rule).splitByOr()) {
             split = split.clone();
-            // split.clearTokens();
             state.add(new RuleStateRow(rule, split, 0, column));
         }
     }
 }
-
-
-// a*x^2 + 1/2*x^(1+2)
-
-// atom: a-Z | 0...9 | paren | exp
-// exp: add | mul | pow
-// paren: (exp)
-// add: mul + mul | mul - mul | mul
-// mul: pow * pow | pow / pow | pow
-// pow: atom ^ atom | atom
-
-// {
-//     "atom" : {["L"], ["D"], ["paren"], ["exp"]},
-//     "exp" : {["add"], ["mul"], ["pow"]},
-//     "add" : {["mul", "P", "mul"]}
-// }
-
-
-// atom * atom ^ atom + atom / atom * atom ^ (atom + atom)
-// pow1 * pow2 + pow1 / pow1 * pow1 ^ (pow1 + pow1)
-// mul(1 * 2) + mul(1 / 1) * mul1 ^ (mul1 + mul1)
-// add(mul + mul) * mul1 ^ paren( add(mul1 + mul1) )
-// aexp(mexp + mexp) * mexp ^ paren( aexp(mexp + mexp) )
-// atom * atom ^ atom
-// pow * pow
-// mul
-// exp
-// atom

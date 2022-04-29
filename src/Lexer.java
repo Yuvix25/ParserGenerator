@@ -51,20 +51,14 @@ public class Lexer {
                 all.add(new Tuple<int[],String>(se, key));
             }
         }
-
         Collections.sort(all, (o1, o2) -> comp(o1, o2));
 
-        
-        // check for collisons and create token list
         List<LexerToken> token_list = new ArrayList<LexerToken>();
 
-        // int prev_end = -1;
-        // String prev_token = "";
         int i = 0;
         List<Integer> removes = new ArrayList<Integer>();
         for (Tuple<int[], String> match : all) {
             if (i != 0 && match.key[0] < all.get(i-1).key[1]) {
-                // throw new LexerError("Collision found between token '" + prev_token + "' and token '" + match.value + "' on line " + (getLine(input, match.key[0]) + 1));
                 if (rules.indexOf(match.value) < rules.indexOf(all.get(i-1).value)) {
                     removes.add(i-1);
                 } else {
@@ -84,10 +78,3 @@ public class Lexer {
         return token_list;
     }
 }
-
-/*
-[
-    ((0, 1), "letter"),
-    ((1, 4), "whitespace")
-]
-*/
