@@ -18,6 +18,8 @@ public class RuleParser {
                     root.type = 1;
                     break;
                 case "?":
+                    if (root.children.size() > 0)
+                        root.children.set(root.children.size()-1, new ParserRule(2, Arrays.asList(root.children.get(root.children.size()-1))));
                     break;
                 case " ":
                     break;

@@ -86,7 +86,7 @@ class Parser {
         }
     }
 
-    public ParserToken parse(String input) throws LexerError {
+    public ParserToken parse(String input) throws LexerError, ParserError {
         List<LexerToken> tokens = lexer.tokenize(input);
         List<List<RuleStateRow>> stateTable = new ArrayList<List<RuleStateRow>>();
         int k = 0;
@@ -123,7 +123,7 @@ class Parser {
         return null;
     }
 
-    public ParserToken parse(String input, List<String> skipSingle) throws LexerError {
+    public ParserToken parse(String input, List<String> skipSingle) throws LexerError, ParserError {
         ParserToken token = parse(input);
         if (token != null)
             return removeSingles(token, skipSingle);
@@ -167,7 +167,7 @@ class Parser {
         }
     }
 
-    private void expandAllNonterminals(List<RuleStateRow> state, int column) {
+    private void expandAllNonterminals(List<RuleStateRow> state, int column) throws ParserError {
         Set<String> toAdd = new HashSet<String>();
         Set<String> alreadyAdded = new HashSet<String>();
         int prevSize = -1;
@@ -195,7 +195,7 @@ class Parser {
         
     }
 
-    private void addRule(List<RuleStateRow> state, String rule, int column) {
+    private void addRule(List<RuleStateRow> state, String rule, int column) throws ParserError {
         for (ParserRule split : rules.get(rule).splitByOr()) {
             split = split.clone();
             state.add(new RuleStateRow(rule, split, 0, column));
