@@ -16,4 +16,11 @@ public class OrderedDict<T1, T2> extends LinkedHashMap<T1, T2> {
             put(e.key, e.value);
         }
     }
+
+    @SafeVarargs
+    public OrderedDict(Tuple<T1, T2>... x) {
+        for (Tuple<T1, T2> e : x) {
+            put(e.key, e.value);
+        }
+    }
 }

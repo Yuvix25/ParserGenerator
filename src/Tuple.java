@@ -5,4 +5,8 @@ public class Tuple <T1, T2> {
         this.key = a;
         this.value = b;
     }
+
+    public String toString() {
+        return "(" + key + ", " + value + ")";
+    }
 }

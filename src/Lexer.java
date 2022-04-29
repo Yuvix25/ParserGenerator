@@ -7,12 +7,17 @@ public class Lexer {
     Token[] tokens;
     public Lexer(OrderedDict<String, String> regex_rules) {
         rules = regex_rules;
-        tokens = new LexerToken[rules.size()];
+        tokens = new Token[rules.size()];
         int i = 0;
         for (String key : rules.keySet()) {
             tokens[i] = new Token(key);
             i++;
         }
+    }
+
+    @SafeVarargs
+    public Lexer(Tuple<String, String>... regex_rules) {
+        this(new OrderedDict<String, String>(regex_rules));
     }
 
     private static List<int[]> allMatches(String reg, String input) {

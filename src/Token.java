@@ -14,6 +14,6 @@ public class Token {
     }
 
     public String toString() {
-        return name + "<" + (line + 1) + ":" + start + "," + end + ">";
+        return name + "<" + (line + 1) + ":" + start + "," + end + ">(" + value + ")";
     }
 }
