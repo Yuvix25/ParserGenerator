@@ -6,8 +6,9 @@ public class ParserRule {
     String name;
     ParserToken token;
     boolean isEmpty = false;
+    boolean isDummy = false;
 
-    /* type -> -1: NAME, 0: AND, 1: OR, 2: EXP?
+    /* type -> -1: NAME, 0: AND, 1: OR, 2: RULE?, 3: RULE+
     */
     public ParserRule(int type, List<ParserRule> children) {
         this.type = type;
@@ -24,7 +25,7 @@ public class ParserRule {
     public List<ParserRule> splitByOr() throws ParserError {
         List<ParserRule> res = new ArrayList<ParserRule>();
         switch(type) {
-            case 0:
+            case 0: // And
                 for (ParserRule child : children) {
                     List<ParserRule> splittedChild = child.splitByOr();
                     if (res.size() == 0)
@@ -33,7 +34,7 @@ public class ParserRule {
                         res = ruleProduct(res, splittedChild);
                 }
                 break;
-            case 1:
+            case 1: // Or
                 for (ParserRule child : children) {
                     if (child.type == 2) {
                         throw new ParserError("Cannot use '?' within an 'Or' statement. (example: x|y?|z is not allowed)");
@@ -41,11 +42,14 @@ public class ParserRule {
                     res.addAll(child.splitByOr());
                 }
                 break;
-            case 2:
+            case 2: // Rule?
                 res.addAll(children.get(0).splitByOr());
                 res.add(new ParserRule(true));
                 break;
-            case -1:
+            case 3: // Rule+
+                res.add(this);
+                break;
+            case -1: // Name
                 res.add(this);
                 break;
         }
@@ -79,6 +83,20 @@ public class ParserRule {
         return prod;
     }
 
+    public boolean matches(Parser.RuleStateRow toMatch, Parser.RuleStateRow parentRow) {
+        if (type == -1) {
+            if (toMatch.name.equals(name)) {
+                return true;
+            }
+            return false;
+        } else if (type == 0 || type == 1 || type == 2) {
+            return false;
+        } else if (type == 3) {
+        }
+
+        return false;
+    }
+
     public void clearTokens() {
         this.token = null;
         if (type != -1)
@@ -105,6 +123,6 @@ public class ParserRule {
         if (type == -1)
             return name;
         else
-            return  (type == 0 ? "And<" : (type == 1 ? "Or<" : "?")) + children.toString().substring(type == 2 ? 1 : 0, type == 2 ? children.toString().length() - 1 : children.toString().length()) + (type == 2 ? "" : ">");
+            return  (type == 0 ? "And<" : (type == 1 ? "Or<" : "")) + children.toString().substring(type == 2 ? 1 : 0, type == 2 ? children.toString().length() - 1 : children.toString().length()) + (type == 2 ? "?" : ">");
     }
 }

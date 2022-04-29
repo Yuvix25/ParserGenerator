@@ -1,0 +1,23 @@
+Parser:
+ - block: variable+
+variable: GLOBAL? ID EQ expr SEMICOLON
+expr: add | neg
+neg: ADD mul
+add: (add ADD mul) | mul
+mul: (mul MUL pow) | pow
+pow: (pow POW atom) | atom
+paren: LPAREN expr RPAREN
+atom: NUM | ID | paren
+
+
+Lexer:
+GLOBAL: `global`
+ID: `[a-zA-Z_][a-zA-Z0-9_]*`
+SEMICOLON: `;`
+EQ: `=`
+NUM: `[0-9]+`
+ADD: `\+|\-`
+MUL: `\*|\/`
+POW: `\^`
+LPAREN: `\(`
+RPAREN: `\)`

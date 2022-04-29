@@ -8,8 +8,9 @@ class Parser {
     Lexer lexer;
     Map<String,ParserRule> rules;
     String startRule;
+    Set<String> repetitionRules = new HashSet<String>();
     
-    public static Parser fromFile(String filename) throws FileNotFoundException, IOException {
+    public static Parser fromFile(String filename) throws ParserError, FileNotFoundException, IOException {
         FileReader in = new FileReader(filename);
         BufferedReader br = new BufferedReader(in);
         String content = "";
@@ -26,11 +27,14 @@ class Parser {
         return new Parser(content);
     }
 
-    @SuppressWarnings("unchecked")
-    public Parser(String content) {
-        String[] parserText = content.substring(content.indexOf("Parser:\n")+8, content.indexOf("Lexer:\n")).split("\n");
-        String[] lexerText = content.substring(content.indexOf("Lexer:\n")+8).split("\n");
+    
+    public Parser(String content) throws ParserError {
+        this(content.substring(content.indexOf("Lexer:\n")+7).split("\n"), 
+             content.substring(content.indexOf("Parser:\n")+8, content.indexOf("Lexer:\n")).split("\n"));
+    }
 
+    @SuppressWarnings("unchecked")
+    public Parser(String[] lexerText, String[] parserText) throws ParserError {
         Tuple<String,String>[] lexerRules = (Tuple<String,String>[]) new Tuple[lexerText.length];
         for (int i = 0; i < lexerText.length; i++) {
             String line = lexerText[i];
@@ -55,17 +59,28 @@ class Parser {
             val = val.trim();
             boolean start = name.trim().startsWith("-");
             if (start) {
-                name = name.trim().substring(name.indexOf("-")).trim();
+                name = name.trim().substring(1).trim();
                 startRule = name;
             }
 
             ParserRule rule = RuleParser.parseRule(val);
+            if (rule.type == 0 && rule.children.size() == 1 && rule.children.get(0).type == 3) {
+                rule = rule.children.get(0);
+            }
+            if (rule.type == 3) { // rule+
+                this.repetitionRules.add(name);
+                rule = new ParserRule(0, Arrays.asList(rule.children.get(0), new ParserRule(2, Arrays.asList(new ParserRule(name)))));
+            }
+            
             
             this.rules.put(name, rule);
         }
+        if (startRule == null) {
+            throw new ParserError("No parser start rule found in the grammer. Please specify one by inserting a `-` before it's name.");
+        }
     }
 
-    private class RuleStateRow {
+    public class RuleStateRow {
         String name;
         ParserRule rule;
         int position;
@@ -114,13 +129,48 @@ class Parser {
             }
         }
 
+        ParserToken finalToken = null;
         for (RuleStateRow row : currentState) {
             if (row.name.equals(startRule) && row.column == 0 && row.position == row.rule.children.size()) {
-                return row.rule.token;
+                finalToken = row.rule.token;
+                break;
             }
         }
+        fixRepetitionRules(finalToken, new Stack<String>());
 
-        return null;
+        return finalToken;
+    }
+
+    private void fixRepetitionRules(ParserToken token, Stack<String> enteredReps) {
+        if (token == null)
+            return;
+        
+        boolean startedNow = false;
+        if (repetitionRules.contains(token.name) && (enteredReps.empty() || !enteredReps.peek().equals(token.name))) {
+            enteredReps.push(token.name);
+            startedNow = true;
+        }
+
+        List<ParserToken> newChildren = new ArrayList<ParserToken>();
+            for (ParserToken child : token.children) {
+                if (repetitionRules.contains(child.name)) {
+                    fixRepetitionRules(child, enteredReps);
+                    if (child.name.equals(enteredReps.peek())) {
+                        newChildren.addAll(child.children);
+                    } else {
+                        newChildren.add(child);
+                    }
+                } else {
+                    newChildren.add(child);
+                }
+            }
+        
+        if (!enteredReps.empty() && enteredReps.peek().equals(token.name)) {
+            token.children = newChildren;
+        }
+        if (startedNow) {
+            enteredReps.pop();
+        }
     }
 
     public ParserToken parse(String input, List<String> skipSingle) throws LexerError, ParserError {
@@ -158,7 +208,8 @@ class Parser {
             }
             row.rule.token = new ParserToken(row.name, value, tokenChildren.get(0).start, tokenChildren.get(tokenChildren.size() - 1).end, tokenChildren.get(0).line, tokenChildren);
             for (RuleStateRow row2 : stateTable.get(row.column)) {
-                if (row2.position < row2.rule.children.size() && row.name.equals(row2.rule.children.get(row2.position).name)) {
+                // if (row2.position < row2.rule.children.size() && row.name.equals(row2.rule.children.get(row2.position).name)) {
+                if (row2.position < row2.rule.children.size() && row2.rule.children.get(row2.position).matches(row, row2)) {
                     progress(stateTable, state, row2.clone(), row.rule.token);
                 }
             }
