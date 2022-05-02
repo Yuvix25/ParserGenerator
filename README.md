@@ -15,7 +15,7 @@ RULENAME: `regex`
 ### Example:
 ```js
 Parser:
-// + currently can only be used to wrap a complete rule, something like 'rule: rul1 rule2+ rule3' is not alowed.
+// + and * can currently only be used to wrap a complete rule, so something like 'rule: rul1 rule2+ rule3' is not alowed.
  - block: variable+ // * is supported as well!
 variable: GLOBAL? ID EQ expr SEMICOLON
 expr: add | neg
