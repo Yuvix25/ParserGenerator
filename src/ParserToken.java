@@ -7,11 +7,14 @@ public class ParserToken extends Token{
     }
     public ParserToken(LexerToken token) {
         super(token.name, token.value, token.start, token.end, token.line);
+        this.isEmpty = token.isEmpty;
     }
-
     public ParserToken(String name, String value, int start, int end, int line, List<ParserToken> children) {
         super(name, value, start, end, line);
         this.children = children;
+    }
+    public ParserToken() {
+        isEmpty = true;
     }
 
     public ParserToken clone() {
@@ -27,9 +30,11 @@ public class ParserToken extends Token{
     }
 
     public String toString() {
+        if (isEmpty)
+            return "EmptyToken";
         if (children != null)
             return name + "<" + (line + 1) + ":" + start + "," + end + ">(" + children + ")";
         else
-        return name + "<" + (line + 1) + ":" + start + "," + end + ">(" + value + ")";
+            return name + "<" + (line + 1) + ":" + start + "," + end + ">(" + value + ")";
     }
 }

@@ -1,18 +1,32 @@
 import java.util.*;
+enum RuleType {
+    Name,
+    And,
+    Or,
+    Repetition0, // RULE*
+    Repetition1, // RULE+
+    Quantifier // RULE?
+}
 
 public class ParserRule {
-    int type = -1;
+    // type = -1: NAME, 0: AND, 1: OR, 2: RULE?, 3: RULE+
+    // int type = -1;
+
+    RuleType type = RuleType.Name;
     List<ParserRule> children;
     String name;
     ParserToken token;
     boolean isEmpty = false;
     boolean isDummy = false;
 
-    /* type -> -1: NAME, 0: AND, 1: OR, 2: RULE?, 3: RULE+
-    */
-    public ParserRule(int type, List<ParserRule> children) {
+    
+    public ParserRule(RuleType type, List<ParserRule> children) {
         this.type = type;
         this.children = children;
+    }
+    public ParserRule(RuleType type, ParserRule child) {
+        this.type = type;
+        this.children = Arrays.asList(child);
     }
     public ParserRule(String name) {
         this.name = name;
@@ -20,12 +34,13 @@ public class ParserRule {
     }
     public ParserRule(boolean emptyRule) {
         this.isEmpty = emptyRule;
+        this.children = new ArrayList<ParserRule>(Arrays.asList(this));
     }
 
     public List<ParserRule> splitByOr() throws ParserError {
         List<ParserRule> res = new ArrayList<ParserRule>();
         switch(type) {
-            case 0: // And
+            case And: // And
                 for (ParserRule child : children) {
                     List<ParserRule> splittedChild = child.splitByOr();
                     if (res.size() == 0)
@@ -34,22 +49,21 @@ public class ParserRule {
                         res = ruleProduct(res, splittedChild);
                 }
                 break;
-            case 1: // Or
+            case Or: // Or
                 for (ParserRule child : children) {
-                    if (child.type == 2) {
+                    if (child.type == RuleType.Quantifier) {
                         throw new ParserError("Cannot use '?' within an 'Or' statement. (example: x|y?|z is not allowed)");
                     }
                     res.addAll(child.splitByOr());
                 }
                 break;
-            case 2: // Rule?
+            case Quantifier: // Rule?
                 res.addAll(children.get(0).splitByOr());
                 res.add(new ParserRule(true));
                 break;
-            case 3: // Rule+
-                res.add(this);
-                break;
-            case -1: // Name
+            case Repetition1: // Rule+
+            case Repetition0: // Rule*
+            case Name: // Name
                 res.add(this);
                 break;
         }
@@ -77,36 +91,39 @@ public class ParserRule {
                         if (!child.isEmpty)
                             newChildren.add(child);
 
-                prod.add(new ParserRule(0, newChildren));
+                prod.add(new ParserRule(RuleType.And, newChildren));
             }
         }
         return prod;
     }
 
-    public boolean matches(Parser.RuleStateRow toMatch, Parser.RuleStateRow parentRow) {
-        if (type == -1) {
+    public int matches(Parser.RuleStateRow toMatch, Parser.RuleStateRow parentRow) {
+        if (type == RuleType.Name) {
             if (toMatch.name.equals(name)) {
-                return true;
+                return 1;
             }
-            return false;
-        } else if (type == 0 || type == 1 || type == 2) {
-            return false;
-        } else if (type == 3) {
+            return -1;
+        } else if (type == RuleType.And || type == RuleType.Or) {
+            return children.size() == 0 || children == null || isEmpty ? 0 : -1;
+        } else if (type == RuleType.Quantifier) {
+            return -1;
         }
 
-        return false;
+        return -1;
     }
 
     public void clearTokens() {
         this.token = null;
-        if (type != -1)
+        if (type != RuleType.Name)
             for (ParserRule x : children)
                 x.clearTokens();
     }
 
     public ParserRule clone() {
+        if (isEmpty)
+            return new ParserRule(true);
         List<ParserRule> newChildren = new ArrayList<ParserRule>();
-        if (type != -1)
+        if (type != RuleType.Name)
             for (ParserRule child : children)
                 newChildren.add(child.clone());
         else
@@ -120,9 +137,11 @@ public class ParserRule {
 
 
     public String toString() {
-        if (type == -1)
+        if (isEmpty)
+            return "EmptyRule";
+        else if (type == RuleType.Name)
             return name;
         else
-            return  (type == 0 ? "And<" : (type == 1 ? "Or<" : "")) + children.toString().substring(type == 2 ? 1 : 0, type == 2 ? children.toString().length() - 1 : children.toString().length()) + (type == 2 ? "?" : ">");
+            return  (type == RuleType.And ? "And<" : (type == RuleType.Or ? "Or<" : "")) + children.toString().substring(type == RuleType.Quantifier ? 1 : 0, type == RuleType.Quantifier ? children.toString().length() - 1 : children.toString().length()) + (type == RuleType.Quantifier ? "?" : ">");
     }
 }

@@ -6,16 +6,17 @@ Parser:
 regularrule: <rule>
 
 Lexer:
+// if a something is matched for two or more tokens, it will be matched as the highest of them here, so order of appearance matters
 RULENAME: `regex`
 
 
 // comment (must be seperate line)
 ```
-## Current Supported Parser Features:
+### Example:
 ```js
 Parser:
 // + currently can only be used to wrap a complete rule, something like 'rule: rul1 rule2+ rule3' is not alowed.
- - block: variable+
+ - block: variable+ // * is supported as well!
 variable: GLOBAL? ID EQ expr SEMICOLON
 expr: add | neg
 neg: ADD mul

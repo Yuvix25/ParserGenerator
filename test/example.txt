@@ -1,5 +1,5 @@
 Parser:
- - block: variable+
+ - block: variable*
 variable: GLOBAL? ID EQ expr SEMICOLON
 expr: add | neg
 neg: ADD mul

@@ -64,12 +64,15 @@ class Parser {
             }
 
             ParserRule rule = RuleParser.parseRule(val);
-            if (rule.type == 0 && rule.children.size() == 1 && rule.children.get(0).type == 3) {
+            if (rule.type == RuleType.And && rule.children.size() == 1 && (rule.children.get(0).type == RuleType.Repetition1 || rule.children.get(0).type == RuleType.Repetition0)) {
                 rule = rule.children.get(0);
             }
-            if (rule.type == 3) { // rule+
+            if (rule.type == RuleType.Repetition1) { // rule+
                 this.repetitionRules.add(name);
-                rule = new ParserRule(0, Arrays.asList(rule.children.get(0), new ParserRule(2, Arrays.asList(new ParserRule(name)))));
+                rule = new ParserRule(RuleType.And, Arrays.asList(rule.children.get(0), new ParserRule(RuleType.Quantifier, new ParserRule(name))));
+            } else if (rule.type == RuleType.Repetition0) { // rule*
+                this.repetitionRules.add(name);
+                rule = new ParserRule(RuleType.Quantifier, new ParserRule(RuleType.And, Arrays.asList(rule.children.get(0), new ParserRule(RuleType.Quantifier, new ParserRule(name)))));
             }
             
             
@@ -109,36 +112,76 @@ class Parser {
         List<RuleStateRow> currentState = new ArrayList<RuleStateRow>();
         addRule(currentState, startRule, 0);
 
+        ParserToken finalToken = null;
         while (true) {
             expandAllNonterminals(currentState, k);
             // System.out.println(currentState);
             stateTable.add(currentState);
             k++;
-            if (k == tokens.size()+1)
-                break;
 
             // scan
             currentState = new ArrayList<RuleStateRow>();
+            int validCount = 0;
             for (RuleStateRow row : stateTable.get(k-1)) {
                 if (row.position < row.rule.children.size()) {
                     ParserRule curr = row.rule.children.get(row.position);
-                    if (tokens.get(k-1).name.equals(curr.name)) {
-                        progress(stateTable, currentState, row, new ParserToken(tokens.get(k-1)));
+                    int index = k - 1 - countEmpties(row.rule, 0, row.position);
+                    if (index < tokens.size() && (curr.isEmpty || tokens.get(index).name.equals(curr.name))) {
+                        progress(stateTable, currentState, row, !curr.isEmpty ? new ParserToken(tokens.get(index)) : new ParserToken(), 1);
+                        validCount++;
                     }
                 }
             }
+            if (validCount == 0)
+                break;
+
+            boolean exit = false;
+            for (RuleStateRow row : currentState) {
+                if (row.name.equals(startRule) && row.column == 0 && row.position == row.rule.children.size() && k-countEmpties(row.rule) == tokens.size()) {
+                    finalToken = row.rule.token;
+                    exit = true;
+                    break;
+                }
+            }
+            if (exit)
+                break;
         }
 
-        ParserToken finalToken = null;
-        for (RuleStateRow row : currentState) {
-            if (row.name.equals(startRule) && row.column == 0 && row.position == row.rule.children.size()) {
-                finalToken = row.rule.token;
-                break;
-            }
-        }
+        
+        
         fixRepetitionRules(finalToken, new Stack<String>());
+        removeEmptyTokens(finalToken);
 
         return finalToken;
+    }
+
+    private int countEmpties(ParserRule rule, int startIndex, int endIndex) {
+        int count = rule.token != null ? (rule.token.isEmpty ? 1 : 0) : 0;
+        if (rule.children == null || (rule.children.size() == 1 && rule.children.get(0) == rule))
+            return count;
+        
+        for (int i = startIndex; i < endIndex; i++) {
+            count += countEmpties(rule.children.get(i));
+        }
+        return count;
+    }
+
+    private int countEmpties(ParserRule rule) {
+        return countEmpties(rule, 0, rule.children.size());
+    }
+
+    private void removeEmptyTokens(ParserToken token) {
+        List<ParserToken> toRemove = new ArrayList<ParserToken>();
+        if (token != null && token.children != null) {
+            for (ParserToken child : token.children) {
+                if (child.isEmpty) {
+                    toRemove.add(child);
+                } else {
+                    removeEmptyTokens(child);
+                }
+            }
+            token.children.removeAll(toRemove);
+        }
     }
 
     private void fixRepetitionRules(ParserToken token, Stack<String> enteredReps) {
@@ -155,7 +198,7 @@ class Parser {
             for (ParserToken child : token.children) {
                 if (repetitionRules.contains(child.name)) {
                     fixRepetitionRules(child, enteredReps);
-                    if (child.name.equals(enteredReps.peek())) {
+                    if (!enteredReps.empty() && child.name.equals(enteredReps.peek())) {
                         newChildren.addAll(child.children);
                     } else {
                         newChildren.add(child);
@@ -191,8 +234,8 @@ class Parser {
         return token;
     }
 
-    private void progress(List<List<RuleStateRow>> stateTable, List<RuleStateRow> state, RuleStateRow row, ParserToken token) {
-        state.add(new RuleStateRow(row.name, row.rule, row.position+1, row.column));
+    private void progress(List<List<RuleStateRow>> stateTable, List<RuleStateRow> state, RuleStateRow row, ParserToken token, int steps) {
+        state.add(new RuleStateRow(row.name, row.rule, row.position+steps, row.column));
         if (row.position + 1 == row.rule.children.size()) {
             row.rule.children.get(row.position).token = token;
 
@@ -206,11 +249,17 @@ class Parser {
                 }
                 value += tokenChildren.get(tokenChildren.size() - 1).value;
             }
-            row.rule.token = new ParserToken(row.name, value, tokenChildren.get(0).start, tokenChildren.get(tokenChildren.size() - 1).end, tokenChildren.get(0).line, tokenChildren);
+            if (tokenChildren.size() == 1 && tokenChildren.get(0).isEmpty)
+                row.rule.token = new ParserToken();
+            else
+                row.rule.token = new ParserToken(row.name, value, tokenChildren.get(0).start, tokenChildren.get(tokenChildren.size() - 1).end, tokenChildren.get(0).line, tokenChildren);
+            
             for (RuleStateRow row2 : stateTable.get(row.column)) {
-                // if (row2.position < row2.rule.children.size() && row.name.equals(row2.rule.children.get(row2.position).name)) {
-                if (row2.position < row2.rule.children.size() && row2.rule.children.get(row2.position).matches(row, row2)) {
-                    progress(stateTable, state, row2.clone(), row.rule.token);
+                if (row2.position < row2.rule.children.size()) { //  && row.name.equals(row2.rule.children.get(row2.position).name)
+                    int steps2 = row2.rule.children.get(row2.position).matches(row, row2);
+                    if (steps2 != -1) {
+                        progress(stateTable, state, row2.clone(), row.rule.token, steps2);
+                    }
                 }
             }
         } else {
@@ -227,7 +276,7 @@ class Parser {
             for (RuleStateRow row : state) {
                 if (row.position < row.rule.children.size()) {
                     ParserRule curr = row.rule.children.get(row.position);
-                    if (curr.type == -1 && rules.containsKey(curr.name)) {
+                    if (curr.type == RuleType.Name && rules.containsKey(curr.name)) {
                         toAdd.add(curr.name);
                     }
                 }
